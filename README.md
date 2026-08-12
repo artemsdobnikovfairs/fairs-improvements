@@ -523,3 +523,57 @@
     }
     ```
   - В качестве фолбэка / кроссбраузерного решения использовать библиотеку `react-textarea-autosize` или кастомный хук расчета высоты по `scrollHeight`.
+
+
+## 25. Отсутствие `debounce` в инпутах поиска (Критическая нагрузка на API и Race Conditions)
+
+- **Страница/Компоненты:** Таблица организаций (`Organizations`), все поисковые инпуты и фильтры по проекту
+- **Проблема:**
+  1. На каждый введенный символ в поисковой строке мгновенно отправляется отдельный HTTP-запрос к API (Network tab заливает десятки одинаковых `GET /organizations?...` на каждую клавишу).
+  2. Создает огромную избыточную нагрузку на сервер и БД (по сути, самодельный DDoS своего же бэкенда).
+  3. Появляется высокий риск **Race Condition** (состояние гонки), когда более медленный ответ на ранний символ перекрывает актуальный результат поиска.
+
+- **Решение:**
+  1. Внедрить задержку отправки запросов (отправка через 300–500 мс после завершения ввода).
+  2. Посколько в проекте уже есть `lodash.debounce`, использовать его, но обязательно обернуть в `useCallback` (или `useRef`), чтобы функция не пересоздавалась на каждый рендер компонентов React:
+
+     ```tsx
+     import { useCallback, useEffect, useState } from 'react';
+     import debounce from 'lodash/debounce';
+
+     export const SearchInput = ({ onSearch }: { onSearch: (val: string) => void }) => {
+       const [value, setValue] = useState('');
+
+       // Сохраняем стабильную ссылку на debounced-функцию
+       const debouncedSearch = useCallback(
+         debounce((searchQuery: string) => {
+           onSearch(searchQuery);
+         }, 300),
+         [onSearch]
+       );
+
+       // Очищаем таймер при размонтировании компонента
+       useEffect(() => {
+         return () => {
+           debouncedSearch.cancel();
+         };
+       }, [debouncedSearch]);
+
+       const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+         const val = e.target.value;
+         setValue(val);
+         debouncedSearch(val);
+       };
+
+       return (
+         <input
+           type="text"
+           value={value}
+           onChange={handleChange}
+           placeholder="Search..."
+         />
+       );
+     };
+     ```
+  3. Провести аудит всех поисковых строк, полей фильтрации и автокомплитов по всему проекту на наличие задержки ввода.
+<img width="2254" height="1073" alt="image" src="https://github.com/user-attachments/assets/6ed64889-dc03-4680-82ec-e39f2e354ba3" />
