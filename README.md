@@ -24,4 +24,5 @@
   - Вынести эти действия в единый UI-компонент (например, `IconButton`) с фиксированным размером, одинаковыми внутренними отступами (`padding`) и центрированием иконки.
   - Привести иконки к единой палитре цветов и одинаковому стилю состояния фокуса/наведения.
 <img width="1829" height="931" alt="image" src="https://github.com/user-attachments/assets/211fcdab-1f7d-4047-96f7-0e7fce4b2f1e" />
+<img width="1735" height="609" alt="image" src="https://github.com/user-attachments/assets/df8e4914-b27e-44cc-96f1-daa890db8783" />
 
