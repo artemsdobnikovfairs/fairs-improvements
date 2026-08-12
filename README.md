@@ -194,3 +194,59 @@
     // ...
   };
   ```
+
+
+## 10. Недружелюбное сообщение об ошибке при авторизации (UX/UI)
+
+- **Страница:** Авторизация (`/login`)
+- **Проблема:** При вводе неверных учетных данных система выводит сырую техническую ошибку axios/fetch:
+  > `Request failed with status code 401`
+  
+  Пользователю отдаются технические детали (код статуса HTTP), вместо понятного бизнес-сообщения.
+- **Решение:** 
+  1. Перехватывать ошибки авторизации (401 Unauthorized) на уровне API-клиента или формы.
+  2. Заменить сообщение на понятный текст, например: *"Invalid email or password. Please try again."* (или *"Неверный email или пароль"* в зависимости от локали).
+
+<img width="598" height="703" alt="image" src="https://github.com/user-attachments/assets/6c1968c6-7a5c-4ceb-a40b-f9ff4b84f3cf" />
+
+
+## 11. Смещение текста валидационной ошибки поверх соседних элементов формы
+
+- **Форма:** Создание/редактирование организации (`Organization name`)
+- **Проблема:** При появлении сообщения об ошибке валидации (например, *"Organization name is required."*) текст ошибки накладывается поверх нижестоящего поля ввода (`Description`). Это происходит из-за некорректного использования `position: absolute` у блока ошибки без фиксированного контейнера либо из-за отсутствия отрицательного `margin` / отступа у контейнера поля.
+- **Решение:**
+  - Убрать абсолютное позиционирование у текста ошибки (`FieldError` / `FormMessage`) и выводить его в общем потоке документа (`static` / `relative`).
+  - Либо зарезервировать фиксированную высоту под текст ошибки в обертке поля (FormItem / InputGroup), чтобы появление текста ошибки не ломало верстку и не перекрывало соседей.
+<img width="883" height="100" alt="image" src="https://github.com/user-attachments/assets/67ca612f-1de0-446e-af71-9ec189f1c5bc" />
+
+
+
+## 12. Непоследовательное использование обертки `FormItem` на странице `NewOrganizationPage`
+
+- **Страница/Файл:** `NewOrganizationPage`
+- **Проблема:** В рамках одной формы используется смешанный подход к обертке и лейблингу полей ввода:
+  - Часть полей использует кастомный UI-компонент обертки `FormItem`:
+    ```tsx
+    <FormItem required title="Organization name">
+      <FormInput control="{control}" helperText="{errors.name?.message}" isError="{!!errors.name}" name="name" placeholder="Company name" rules="{createOrganizationFormRules.name}"/>
+    </FormItem>
+    ```
+  - Другая часть полей сверстана через нативные HTML-теги `<div>` и `<p>`:
+    ```tsx
+    <div>
+      <p className="text-sm text-neutral-400">Address</p>
+      <div className="w-full">
+        <FormInput<CreateOrganizationFormPayload>
+          control={control}
+          name="generalAddress"
+          placeholder="e.g., 123 Main St"
+        />
+      </div>
+    </div>
+    ```
+  Это приводит к рассинхрону в визуальных отступах, стилях лейблов (`text-neutral-400` vs стили `FormItem`), обработке валидационных ошибок и звёздочек обязательных полей (`required`).
+
+- **Решение:**
+  1. Привести все элементы формы на странице к единому стандарту с использованием компонента `FormItem`.
+  2. Унифицировать связку `FormItem` + `FormInput` в единый дизайн-код (или заложить пропы `label`/`required`/`error` напрямую в `FormInput`, если `FormItem` всегда используется как его родитель), чтобы исключить ручную верстку оберток полей.
+
