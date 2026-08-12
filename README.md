@@ -370,3 +370,26 @@
   ```
 
 
+## 18. Использование TypeScript `enum` вместо `as const` объектов (Const Assertions)
+
+- **Контекст:** Проект / Типизация констант
+- **Код:**
+  ```typescript
+  export enum FeeAbsorptionOptionValues {
+    PASS = 'pass',
+    ABSORB = 'absorb',
+  }
+  ```
+- **Проблема:** 
+  1. TypeScript `enum` создаёт лишний JS-код при сборке (IIFE-функцию в бандле), увеличивая размер приложения.
+  2. Требует явного импорта самóго `enum` в местах вызова, не позволяя передавать обычный строковый литерал (например, `'pass'`), даже если его значение совпадает.
+- **Решение:** Перейти на стандартную паттерн-структуру с использованием `as const` и генерацией типа через `typeof`:
+  ```typescript
+  export const FeeAbsorptionOptionValues = {
+    PASS: 'pass',
+    ABSORB: 'absorb',
+  } as const;
+
+  export type FeeAbsorptionOptionValue =
+    typeof FeeAbsorptionOptionValues[keyof typeof FeeAbsorptionOptionValues];
+  ```
