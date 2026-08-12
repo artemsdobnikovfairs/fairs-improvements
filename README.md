@@ -451,36 +451,31 @@
     ```
 
 
-## 21. Оверхед, лишние абстракции и избыточные мемоизации в `useCreateOrganization`
+## 21. Оверхед, лишние абстракции и ручная переупаковка результатов в `useCreateOrganization`
 
 - **Файл/Хук:** `useCreateOrganization.ts`
 - **Проблемы:**
-  1. **Лишний `useCallback`:** Функция `create` просто пробрасывает вызов в `mutateAsync`. Посколько `mutateAsync` из React Query имеет стабильную ссылку, дополнительный `useCallback` создаёт бесполезную прослойку.
-  2. **Избыточный `useMemo` для ключа:** Мемоизация статического массива `['useCreateOrganizationMutation']` не даёт никакой пользы.
-  3. **Избыточный интерфейс возвращаемого значения:** Тип `UseCreateOrganizationResponse` дублирует сигнатуру хука, вместо использования автоматического вывода типов TypeScript.
-  4. **Смешение ответственности:** Сложная логика маппинга и маскирования данных из `CreateOrganizationFormPayload` в DTO бэкенда написана inline прямо внутри колбэка мутации.
-  5. **Опасное приведение типов:** Использование `payload.feeRules!` (non-null assertion operator) и небезопасные преобразования типов вроде `!!Number(payload.isEnabledWebsite)`.
+  1. **Избыточная деструктуризация и проброс полей:** Хук вручную достаёт `mutateAsync`, `isPending`, `isSuccess`, `isError`, переименовывает их в `create`/`isLoading` и собирает заново в кастомный объект. Это лишний слой абстракции, создающий дублирующий бойлерплейт.
+  2. **Лишний `useCallback`:** Функция `create` просто пробрасывает вызов в `mutateAsync`. Посколько `mutateAsync` из React Query имеет стабильную ссылку, дополнительный `useCallback` бессмыслен.
+  3. **Избыточный `useMemo` для ключа:** Мемоизация статического массива `['useCreateOrganizationMutation']` не даёт никакой пользы.
+  4. **Избыточный интерфейс возвращаемого значения:** Тип `UseCreateOrganizationResponse` дублирует сигнатуру хука, вместо использования automatic type inference.
+  5. **Смешение ответственности:** Сложная логика маппинга и маскирования данных из `CreateOrganizationFormPayload` в DTO бэкенда написана inline прямо внутри колбэка мутации.
+  6. **Опасное приведение типов:** Использование `payload.feeRules!` (non-null assertion operator) и небезопасные преобразования типов вроде `!!Number(payload.isEnabledWebsite)`.
 
 - **Решение:**
   - Вынести трансформацию данных формы в DTO в отдельную чистую функцию `mapFormToCreateOrganizationDto`.
   - Убрать `useMemo`, `useCallback` и явный тип ответа `UseCreateOrganizationResponse`.
-  - Упростить хук:
+  - Возвращать результат `useMutationBuilder` напрямую без ручной распаковки и запаковки.
+  - Упрощенный вид хука:
 
   ```typescript
   export const useCreateOrganization = () => {
-    const { mutateAsync, isPending, isSuccess, isError } = useMutationBuilder({
+    return useMutationBuilder({
       mutationKey: ['useCreateOrganizationMutation'],
       callback: (payload: CreateOrganizationFormPayload) =>
         adminClient.api.adminOrganizationControllerCreate({
           iOrganizationCreateRequestDto: mapFormToCreateOrganizationDto(payload),
         }),
     });
-
-    return {
-      create: mutateAsync,
-      isLoading: isPending,
-      isSuccess,
-      isError,
-    };
   };
   ```
