@@ -1,5 +1,24 @@
 # fairs-improvements
 
+## 0. Рассинхронизация конфигурационных переменных `.env.local` и `.env.example`
+
+- **Файлы:** `.env.local`, `.env.example`
+- **Проблема:** Файл `.env.local` значительно отстал от обновленного `.env.example`:
+  - **Отсутствуют 70 переменных** (добавленных в `.env.example`), включая ключевые блоки:
+    - *Feature Flags:* `FF_CRM_*`, `FF_ADMIN_CALENDAR`, `FF_ADMIN_THEME_SWITCHER`, `FF_ORDER_RESEND_*`, `FF_PAYOUT_*`, `FEATURE_ADMIN_ORDER_DELIVERIES_ENABLED`.
+    - *Reach Sync:* `REACH_HISTORICAL_SYNC_*`, `REACH_REALTIME_SYNC_*`, `REACH_SYNC_V2_CONSUMER_ENABLED`, `REACH_DEBUG_ENABLED`, `REACH_DELETE_BATCH_SIZE`.
+    - *Sentry & Analytics:* `SENTRY_AUTH_TOKEN`, `SENTRY_CAPTURE_4XX`, `SENTRY_ENABLE_LOGS`, `SENTRY_PINO_BRIDGE_*`, `SENTRY_KIOSK_DSN`, `SENTRY_WEB_EXTRA_SUPPORTED_BROWSERS`, `POSTHOG_FF_API_KEY`, `POSTHOG_KIOSK_*`.
+    - *Ticket Lookup:* `TICKET_LOOKUP_SEARCH_RATE_LIMIT_*`, `TICKET_LOOKUP_SESSION_*`, `TICKET_LOOKUP_TURNSTILE_*`, `TICKET_LOOKUP_UPCOMING_ONLY`.
+    - *Инфраструктура и таймауты:* `OIDC_ISSUER/JWT_*`, `CLOUD_CAMPAIGN_SSO_*`, `CART_TTL_IN_SECONDS`, `RESERVATION_TTL_MINUTES`, `PDF_RENDERER`, `BULL_MQ_*_CONCURRENCY`, `SLACK_NOTIFICATION_*_CHANNEL_ID`, `APP_MODE`, `MOBILE_TERMINAL_LOCATION_USA/CA` и др.
+  - **Присутствуют 19 устаревших/кастомных переменных** в `.env.local` (отсутствующих в `.env.example`):
+    - `APPLE_APNS_*`, `APPLE_WALLET_WEB_SERVICE_URL`, `GOOGLE_WALLET_*`, `API_URL_MOBILE`, `ENV_NAME_MOBILE`, `MOBILE_TERMINAL_LOCATION` (старое имя), `SEATS_IO_*`, `TEST_SEATSI`, `STRIPE_FEES_CONNECTED_ACCOUNT`, `USE_STOCK_SERVICE`, `LOADER_CACHE_DISABLED`, `NX_CLI_DISABLE_TUI`.
+  - **Мелкие косметические сдвиги:** Инлайн-комментарии съехали на отдельные строки.
+- **Решение:**
+  1. Актуализировать `.env.local`, подтянув 70 недостающих ключей из `.env.example` с дефолтными значениями (не перезаписывая существующие секреты).
+  2. Провести ревизию 19 устаревших ключей (удалить неиспользуемые / переименовать согласно актуальному стандарту).
+  3. Добавить скрипт валидации или автоматической проверки окружения (например, через `dotenv-safe` или Zod-схему для env), чтобы сборка выдавала понятную ошибку при отсутствии необходимых переменных.
+  
+
 ## 1. Использование нативных чекбоксов в фильтрах организаций
 
 - **Страница:** `http://admin.localhost:3000/admin/organizations`
