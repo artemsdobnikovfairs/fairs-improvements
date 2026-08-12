@@ -151,3 +151,27 @@
   ```
 
 
+## 9. Неоптимальная стратегия ключей React Query в хуке `useGetMeData`
+
+- **Файл:** `useGetMeData` (или кастомный запрос пользователя)
+- **Код:**
+  ```typescript
+  const keys = useMemo(() => ['useGetMyUserQuery'], []);
+  ```
+- **Проблемы:**
+  1. **Избыточный `useMemo`:** Мемоизация статичного массива без зависимостей внутри хука создаёт лишние накладные расходы.
+  2. **Сложность инвалидации:** Ключ объявлен локально внутри хука, из-за чего его невозможно импортировать в мутациях или других местах для вызова `queryClient.invalidateQueries(...)` или `setQueryData`.
+- **Решение:** Вынести `queryKey` за пределы хука в виде экспортируемой константы:
+  ```typescript
+  export const GET_ME_QUERY_KEY = ['useGetMyUserQuery'] as const;
+
+  export const useGetMeData = ({ isEnabled }: UseGetMyUserProps): UseGetMyUserResponse => {
+    const { data, isLoading, isSuccess } = useQueryBuilder<IUserResponseDto>({
+      callback: () => adminClient.api.authControllerMe(),
+      queryKey: GET_ME_QUERY_KEY,
+      enabled: isEnabled,
+      // ...
+    });
+    // ...
+  };
+  ```
