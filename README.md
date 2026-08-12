@@ -270,3 +270,54 @@
      </fieldset>
      ```
 
+
+## 14. Избыточные `useEffect` для обработки логики сброса и синхронизации полей формы
+
+- **Страница/Файл:** `NewOrganizationPage`
+- **Код:**
+  ```typescript
+  const onChangeWebsiteSelector = useCallback(() => {
+    resetField('dudaWebsiteName');
+  }, [resetField]);
+
+  useEffect(() => {
+    setValue('state', undefined);
+    if (isTaxationEnabled === TaxationEnabledOptionsValues.DEFAULT) {
+      setValue('taxAddressState', null);
+    }
+  }, [country, isTaxationEnabled, setValue]);
+
+  const onChangeCountryListener = (payload?: string) => {
+    setValue('timezone', timeZonesOptions(payload as ICountry)[0]?.value || '');
+  };
+
+  useEffect(() => {
+    if (isTaxationEnabled === TaxationEnabledOptionsValues.NON_TAXABLE) {
+      setValue('taxAddressState', null);
+      setValue('taxAddressCity', null);
+      setValue('taxAddressPostalCode', null);
+      setValue('taxAddressLine1', null);
+      setValue('taxAddressLine2', null);
+    }
+  }, [isTaxationEnabled, setValue]);
+  ```
+- **Проблемы:**
+  1. **Антипаттерн синхронизации состояния через `useEffect`:** Побочные эффекты реагируют на изменения значений формы в циклах эффектов, вызывая каскадные лишние ререндеры компонента.
+  2. **Сложность отслеживания связей:** Логика сброса зависимых полей (`taxAddressState`, `timezone`, `dudaWebsiteName`) размазана по разным эффектам и слушателям, вместо того чтобы находиться в месте наступления самого события.
+- **Решение:**
+  - Полностью отказаться от `useEffect` для управления состоянием полей формы.
+  - Перенести всю зависимую логику (сброс адреса, установка таймзоны) в явные обработчики событий (`onChange` соответствующих селекторов/радио-кнопок):
+    ```typescript
+    const handleTaxationChange = (value: TaxationEnabledOptionsValues) => {
+      setValue('isTaxationEnabled', value);
+      if (value === TaxationEnabledOptionsValues.NON_TAXABLE) {
+        setValue('taxAddressState', null);
+        setValue('taxAddressCity', null);
+        setValue('taxAddressPostalCode', null);
+        setValue('taxAddressLine1', null);
+        setValue('taxAddressLine2', null);
+      } else if (value === TaxationEnabledOptionsValues.DEFAULT) {
+        setValue('taxAddressState', null);
+      }
+    };
+    ```
