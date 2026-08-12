@@ -393,3 +393,32 @@
   export type FeeAbsorptionOptionValue =
     typeof FeeAbsorptionOptionValues[keyof typeof FeeAbsorptionOptionValues];
   ```
+
+## 19. Наличие неиспользуемого кода и отсутствие жестких ESLint-правил автофикса
+
+- **Контекст:** Весь проект / Конфигурация линтера (`.eslintrc` / `eslint.config.js`)
+- **Проблема:** В файлах проекта остаются неиспользуемые переменные, импорты и аргументы функций, а линтер либо молчит, либо выдает слабое предупреждение (`warning`), не блокируя сборку и коммит.
+- **Решение:**
+  1. Перевести правило неиспользуемых переменных в статус ошибки (`error`).
+  2. Подключить плагин `eslint-plugin-unused-imports`, который умеет автоматически вычищать лишние импорты и переменные при сохранении файла или запускe `eslint --fix`.
+  3. Добавить в `.eslintrc`:
+     ```json
+     {
+       "plugins": ["unused-imports"],
+       "rules": {
+         "no-unused-vars": "off",
+         "@typescript-eslint/no-unused-vars": "off",
+         "unused-imports/no-unused-imports": "error",
+         "unused-imports/no-unused-vars": [
+           "error",
+           {
+             "vars": "all",
+             "varsIgnorePattern": "^_",
+             "args": "after-used",
+             "argsIgnorePattern": "^_"
+           }
+         ]
+       }
+     }
+     ```
+  4. Настроить Husky / `lint-staged`, чтобы перед каждым коммитом неиспользуемый код автоматически вычищался и не попадал в репозиторий.
