@@ -50,3 +50,104 @@
   ```typescript
   const isSuperAdmin = Boolean(userData?.isSuperAdmin);
   ```
+
+
+## 6. Избыточный `useCallback` для обработчика ввода поиска
+
+- **Страница/Файл:** Компонент списка организаций (`http://admin.localhost:3000/admin/organizations`)
+- **Проблема:** Функция `handleSearchChange` обёрнута в `useCallback`:
+  ```typescript
+  const [search, setSearch] = useState('');
+  const handleSearchChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setSearch(event.target.value);
+    },
+    [],
+  );
+  ```
+  Это избыточная оптимизация, так как:
+  1. `SearchComponent` не обёрнут в `React.memo` и перерисовывается при каждом рендере родителя.
+  2. При вводе символа меняется `search` в `useState`, из-за чего в `SearchComponent` передаётся новый проп `value`, с провоцируя его ререндер в любом случае.
+- **Решение:** Удалить `useCallback` и объявить обычную функцию или передавать inline-инлайн обработчик:
+  ```typescript
+  const [search, setSearch] = useState('');
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(event.target.value);
+  };
+  ```
+
+
+## 7. Дублирование типа `Event` между страницами и компонентами
+
+- **Страница/Файлы:** `OrganizationsListPage` и `OrganizationsList`
+- **Проблема:** В обоих файлах продублировано абсолютно одинаковое объявление типа `Event`:
+  ```typescript
+  export type Event = {
+    id: string;
+    name: string;
+    description: string;
+    status: EventStatus;
+    timeStart?: string | Date;
+    timeEnd?: string | Date;
+    timezone?: string;
+    coverPhotoUrl?: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  ```
+- **Решение:** Вынести тип `Event` в общий модуль типов (или файл `types.ts` текущей фичи) и импортировать его в компонентах, исключив дублирование:
+  ```typescript
+  import type { Event } from './types';
+  ```
+
+
+## 8. Оптимизация компонента `PageTitle`
+
+- **Файл:** Компонент `PageTitle`
+- **Код:**
+  ```tsx
+  export const PageTitle = ({
+    children,
+    neutral,
+    className = '',
+  }: {
+    children: ReactNode;
+    neutral?: boolean;
+    className?: string;
+  }) => (
+    <h2
+      role="heading"
+      aria-level={2}
+      className={`${         neutral           ? 'mb-3 text-lg text-neutral-500 md:text-xl'           : 'text-xl font-bold md:text-4xl'       } ${className}`}>
+      {children}
+    </h2>
+  );
+  ```
+- **Проблемы:**
+  1. **Лишние ARIA-атрибуты:** Тег `<h2>` семантически уже имеет роль `heading` и уровень `2`. Атрибуты `role="heading"` и `aria-level={2}` избыточны.
+  2. **Склейка CSS-классов:** Ручное объединение Tailwind-классов через шаблонные строки трудно читается и может вызывать конфликты с внешним `className`.
+  3. **Типизация `children`:** Вместо ручного описания `children: ReactNode` предпочтительнее использовать встроенный тип `PropsWithChildren`.
+- **Решение:** Убрать лишние атрибуты и применить утилиту слияния классов (`clsx` или `cn`):
+  ```tsx
+  import { FC, PropsWithChildren } from 'react';
+  import { cn } from '@/lib/utils'; // или clsx
+
+  type PageTitleProps = PropsWithChildren<{
+    neutral?: boolean;
+    className?: string;
+  }>;
+
+  export const PageTitle: FC<PageTitleProps> = ({ children, neutral, className }) => (
+    <h2
+      className={cn(
+        neutral
+          ? 'mb-3 text-lg text-neutral-500 md:text-xl'
+          : 'text-xl font-bold md:text-4xl',
+        className,
+      )}>
+      {children}
+    </h2>
+  );
+  ```
+
+
