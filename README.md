@@ -118,7 +118,7 @@
     <h2
       role="heading"
       aria-level={2}
-      className={`${         neutral           ? 'mb-3 text-lg text-neutral-500 md:text-xl'           : 'text-xl font-bold md:text-4xl'       } ${className}`}>
+      className={`${neutral? 'mb-3 text-lg text-neutral-500 md:text-xl' : 'text-xl font-bold md:text-4xl'} ${className}`}>
       {children}
     </h2>
   );
