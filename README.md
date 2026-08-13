@@ -1,5 +1,77 @@
 # fairs-improvements
 
+## -2. Пермишены для полей форм: manager vs admin
+
+### Проблема
+
+Правило "поле `pricingClassId` видно только админу" реализовано в двух местах, разными механизмами, без общего источника:
+
+```tsx
+// apps/web/src/routes/_manager.events.$id.create.tsx:47
+showFeeClassesConfiguration={subdomain === DomainEnum.Admin}   // источник — ПОДДОМЕН
+```
+
+```ts
+// apps/api/src/modules/ticket-level/dto/admin-ticket-level-create.request.dto.ts
+export class AdminTicketLevelCreateRequestDto extends TicketLevelCreateDto {
+  pricingClassId!: string;                                     // источник — отдельный DTO + guard по РОЛИ
+}
+```
+
+Если появится третья роль или поле с другим набором допущенных ролей — придётся руками синхронизировать логику в двух местах на двух языках. Хуже того: фронт ориентируется на **домен**, бэк — на **роль**, а это разные понятия, которые у одного пользователя могут не совпадать.
+
+### Решение — один объект-правило, оба слоя читают его
+
+```ts
+// libs/permissions/src/ticket-level.permissions.ts
+import { IRoleEnum } from '@fairs/api-core';
+
+export const TicketLevelFieldPermissions = {
+  pricingClassId: [IRoleEnum.Admin],
+  // maxRedemptions: [IRoleEnum.Admin, IRoleEnum.User], // расширять сюда, а не в JSX и не в DTO
+} satisfies Record<string, IRoleEnum[]>;
+
+export const canAccessField = (
+  allowedRoles: readonly IRoleEnum[] | undefined,
+  role: IRoleEnum,
+) => !allowedRoles || allowedRoles.includes(role);
+```
+
+**Фронт** — видимость поля решает роль пользователя (из JWT/сессии, не из поддомена):
+
+```tsx
+// TicketLevelForm.tsx
+const { role } = useCurrentUser();
+const showPricingClass = canAccessField(TicketLevelFieldPermissions.pricingClassId, role);
+
+{showPricingClass && <FormItem name="pricingClassId" ... />}
+```
+
+**Бэк** — тот же объект решает, принимать ли поле, вместо отдельного DTO-наследования:
+
+```ts
+// ticket-level.controller.ts
+if (body.pricingClassId && !canAccessField(TicketLevelFieldPermissions.pricingClassId, user.role)) {
+  throw new ForbiddenException('pricingClassId is not allowed for this role');
+}
+```
+
+### Что это даёт
+
+- **Один источник правды**: добавить новое пермишен-поле = одна строка в `TicketLevelFieldPermissions`, а не правка в JSX-условии и в отдельном DTO одновременно.
+- **Роль вместо домена**: видимость больше не зависит от того, на каком поддомене открыта страница — только от реальных прав юзера. Поддомен остаётся чисто для выбора layout.
+- **Бэк — source of truth по умолчанию**: фронт просто предсказывает то же самое правило для UX (спрятать поле), а бэк всё равно перепроверяет — это не замена валидации, а синхронизация UI с ней.
+- **Расширяемость**: для AGENT с `permissionLevel` та же структура расширяется до `Record<string, { roles: IRoleEnum[]; minPermissionLevel?: number }>` без переписывания вызывающего кода.
+
+### Ограничения набросока
+
+Это иллюстрация идеи (~20 строк), не production-ready:
+- нет обработки для массового набора DTO/serializer'ов на бэке;
+- нет автоматической зачистки запрещённых полей из body до контроллера (сейчас — ручной `if` на каждый эндпоинт).
+
+Возможное следующее развитие: interceptor/pipe на бэке, который чистит запрещённые поля из `body` до контроллера, используя тот же `TicketLevelFieldPermissions`, вместо ручных проверок в каждом методе.
+
+
 ## -1. Проблема: Remix SSR не имеет доступа к правам пользователя → лишний client-side round-trip и мигание UI
 
 ### Текущее состояние
