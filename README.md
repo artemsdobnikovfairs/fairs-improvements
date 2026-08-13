@@ -629,3 +629,32 @@
   - Убрать мёртвую логику `useHashChange` / `useQueryParams` из базового компонента.
   - Использовать семантичные элементы `<button>` с корректными атрибутами accessibility (`aria-selected`, `role="tab"`).
   - Упростить код и сделать его чистым презентационным компонентом.
+
+
+
+## 28. Отсутствие явных визуальных стилей для состояния `disabled` у чекбоксов (UI/UX)
+
+- **Страница/Компоненты:** Формы с чекбоксами (например, `Select Features to Enable`)
+- **Проблема:** Заблокированные чекбоксы визуально никак не отличаются от активных (одинаковый цвет границы, лейбла и фона).
+  - Пользователю приходится наводить курсор на каждый чекбокс, чтобы понять по `cursor: not-allowed`, доступен ли элемент для взаимодействия.
+  - Нарушаются гайдлайны visual feedback (пользователь ожидает мгновенно считывать недоступные опции).
+- **Решение:**
+  - Добавить в CSS/Tailwind стили для состояния `:disabled` / `disabled`:
+    - Снижать прозрачность всего блока: `opacity-50` или `opacity-60`.
+    - Применять серый цвет для текста лейбла (`text-neutral-400`).
+  
+  ```tsx
+  <label
+    className={`flex items-center gap-2 ${
+      isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+    }`}
+  >
+    <input
+      type="checkbox"
+      disabled={isDisabled}
+      className="disabled:bg-neutral-100 disabled:border-neutral-300 disabled:cursor-not-allowed"
+    />
+    <span className={isDisabled ? 'text-neutral-400' : 'text-neutral-900'}>
+      {label}
+    </span>
+  </label>
