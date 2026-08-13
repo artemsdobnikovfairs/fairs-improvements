@@ -1,5 +1,28 @@
 # fairs-improvements
 
+## -1. Проблема: Remix SSR не имеет доступа к правам пользователя → лишний client-side round-trip и мигание UI
+
+### Текущее состояние
+- Данные аккаунта и permissions (`accessRules`, `isSuperAdmin`, `socialPermission`, `crmSegmentsVisible`, `crmCampaignsVisible`) грузятся **только на клиенте** через React Query + axios (`useAccountSession`, `useGetMyData` для manager/admin), запрос улетает уже после гидратации.
+- Root-лоадер Remix (`apps/web/src/root.tsx`) отдаёт только `ENV`, `theme`, `subdomain` — без аккаунта/прав.
+- Кука, которую ставит API, до Remix SSR-запроса **не долетает**: в `apps/web/src/routes/_manager.tsx` эта логика явно закомментирована с TODO *"cookies are not set in calls to Remix BE"*. `session.server.ts` существует, но нигде не импортируется — мёртвый код.
+- Из-за этого: (1) первый рендер не знает прав пользователя → мигание/дозагрузка UI после `/me`; (2) `/me` дублируется тремя разными клиентами (public/manager/admin) с разной формой ответа; (3) нет единого контекста с правами — данные растаскиваются пропсами по `_manager.tsx`/`_admin.tsx`.
+
+### Уточнение по tree-shaking (проверено по коду)
+Гипотеза «весь код фичей летит всем пользователям независимо от прав» **подтвердилась частично**. Remix уже делает route-based code splitting — CRM-сегменты/кампании лежат в отдельных route-файлах и грузятся отдельным чанком только при переходе на URL. Реальная дыра **уже** — внутри *общих* (shared) роутов: permission-гейтед под-компоненты там импортируются статически (`import`, не `React.lazy`), и их JS подгружается для любого, кто открыл этот роут, — проверка прав отрабатывает уже клиентски, после того как код загружен. Примеры:
+- `RenewalViewPage.tsx` (гейт `isSuperAdmin` вокруг `EditOrganization*`)
+- `AdminOrganizationEditPage.tsx` (аналогично)
+- `_manager.marketing.social.tsx` (`CloudCampaignPage` под гейтом `accessRules`/`socialPermission`)
+- `_admin.admin.payouts.tsx`, `_admin.admin.super.tsx` (`isSuperAdmin`)
+
+Lazy-loading (`React.lazy`) в проекте уже используется (`SideBar.Manager`, `SiteChart`, `StatisticsDashboard`, `CheckoutFormStripePayment`), но выбор шёл по размеру бандла/перфу, а не по правам доступа — то есть паттерн есть, просто не применён к permission-гейтам.
+
+### Решение
+1. Починить доставку auth-куки/токена до Remix-сервера (сейчас отключено намеренно — нужно разобраться с доменом/поддоменом/SameSite между API и web).
+2. В root-лоадере (или лоадерах `_manager`/`_admin`) сходить в API за account + permissions и отдать их через единый контекст (`AccountProvider`/`PermissionsProvider`) вместо трёх разных client-side хуков.
+3. В шаренных роутах, где сейчас статический `import` под permission-гейтом (`RenewalViewPage`, `AdminOrganizationEditPage`, `CloudCampaignPage`, `PayoutsPage` и т.п.), заменить его на `React.lazy(() => import(...))`, условие для рендера — уже известные из SSR права, а не после client-side дозапроса.
+4. Добавить ревалидацию (`shouldRevalidate`) root/layout-лоадера на login/logout и на смену прав — иначе флаги в контексте залипнут на первом SSR-рендере.
+
 ## 0. Рассинхронизация конфигурационных переменных `.env.local` и `.env.example`
 
 - **Файлы:** `.env.local`, `.env.example`
