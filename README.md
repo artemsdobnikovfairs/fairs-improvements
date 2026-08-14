@@ -1,5 +1,31 @@
 # fairs-improvements
 
+## -4. Антипаттерн «God Hook» (`useEventModel`): агрегация всех запросов/мутаций сущности в один хук
+
+- **Файл/Хук:** `useEventModel.ts`
+- **Проблема:**
+  1. **Лишние HTTP-запросы и оверхед сети:** Хук-комбайн одновременно вызывает внутри себя 8+ кастомных хуков (`useEventById`, `useEvents`, `useGetEventsWithTicketLevels`, `useEventOptions` и др.). Если компоненту нужна только одна мутация, он всё равно инициализирует все остальные хуки, что приводит к лишним запросам к API.
+  2. **Избыточные ререндеры:** Изменение состояния загрузки или данных в *любом* из 8 внутренних хуков провоцирует перерендер компонента-потребителя, даже если эти данные ему не требуются.
+  3. **Проблемы с древовидной структурой и Clean Code:** Чтобы отключить ненужные запросы, разработчику приходится передавать полотно флагов (`isEventsEnabled: false`, `isEventOptionsEnabled: false`).
+  4. **Усложненная типизация:** Огромные конструкции видов `Parameters<typeof useEvents>[0]['isEnabled']` и `ReturnType<typeof ...>` ухудшают читаемость и замедляют работу TypeScript Server.
+
+- **Решение:**
+  - Отказаться от хуков-агрегаторов («моделей»).
+  - Следует придерживаться принципа **N+1 (атомарных хуков)**: каждый компонент явно импортирует и вызывает только те хуки, которые ему реально необходимы для работы.
+  
+  ```tsx
+  // ❌ ПЛОХО (God Hook):
+  const { createDraftEvent } = useEventModel({
+    eventId: id,
+    isEventsEnabled: false,
+    isEventOptionsEnabled: false,
+    isDashboardEventsEnabled: false,
+  });
+
+  // ✅ ХОРОШО (Атомарные хуки):
+  const { mutate: createDraftEvent } = useCreateDraftEvent();
+  const { data: event } = useEventById({ eventId: id });
+
 ## -3. Архитектурная монолитность таблицы («God Component») и отсутствие атомарных элементов (UI Pattern)
 
 - **Файл/Компонент:** `TableComponent` / `Table.tsx`
