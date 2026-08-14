@@ -1,5 +1,36 @@
 # fairs-improvements
 
+## -3. Архитектурная монолитность таблицы («God Component») и отсутствие атомарных элементов (UI Pattern)
+
+- **Файл/Компонент:** `TableComponent` / `Table.tsx`
+- **Проблема:**
+  1. **Нарушение Single Responsibility Principle:** Компонент жестко завязан на TanStack Table (`@tanstack/react-table`), адаптивность, стили отчетов (`reportStyle`), логику слияния заголовков и кастомную печать.
+  2. **Огромный оверхед для простых кейсов:** Чтобы отрисовать простую статичную таблицу из двух колонок (например, key-value в модалке или карточке), разработчик вынужден формировать массив `ColumnDef`, мудрить с мета-данными и задействовать тяжеловесный движок TanStack Table.
+  3. **Низкая гибкость кастомизации:** Любое нестандартное поведение строки или ячейки требует добавления новых пропсов и ветвлений (`if / else`) в главный компонент.
+
+- **Решение:**
+  - Разделить таблицу на **Compound Components** (примитивы): `Table`, `Table.Header`, `Table.Body`, `Table.Row`, `Table.Head`, `Table.Cell`.
+  - Оставить эти компоненты чистыми HTML-обёртками со стандартной стилизацией.
+  - На основе примитивов построить кастомную обёртку `DataGrid` (или `SmartTable`) для работы с TanStack Table, если нужна сортировка/пагинация/комплексный дата-сетинг.
+
+  **Пример использования атомарного UI (Compound Components):**
+  ```tsx
+  // Для простых таблиц (2-3 колонки) без TanStack overhead:
+  <Table>
+    <Table.Header>
+      <Table.Row>
+        <Table.Head>Param</Table.Head>
+        <Table.Head>Value</Table.Head>
+      </Table.Row>
+    </Table.Header>
+    <Table.Body>
+      <Table.Row>
+        <Table.Cell className="font-bold">Status</Table.Cell>
+        <Table.Cell>Active</Table.Cell>
+      </Table.Row>
+    </Table.Body>
+  </Table>
+
 ## -2. Пермишены для полей форм: manager vs admin
 
 ### Проблема
