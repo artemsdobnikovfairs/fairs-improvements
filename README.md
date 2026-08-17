@@ -1,5 +1,41 @@
 # fairs-improvements
 
+## -5. Статичный `document.title` и отсутствие динамических заголовков страниц при навигации в Remix (UX/A11y)
+
+- **Страница/Маршрутизация:** Все роуты приложения (`routes/organizations.tsx`, `routes/events.$id.tsx` и др.)
+- **Проблема:**
+  - При переходах между роутами заголовок вкладки браузера (`document.title`) остается статичным и не отражает текущую страницу.
+  - Ухудшается UX при работе с несколькими открытыми вкладками — невозможно визуально найти нужный экран.
+  - Нарушается доступность (A11y): ассистивные технологии (скринридеры) не оповещают пользователя с ограниченными возможностями о смене страницы/контекста.
+
+- **Решение:**
+  1. Использовать нативную функцию `meta` из Remix в каждом файле роута:
+
+     ```tsx
+     import type { MetaFunction } from '@remix-run/node'; // или '@remix-run/react'
+
+     export const meta: MetaFunction = () => {
+       return [
+         { title: 'Organizations | Admin Portal' },
+         { name: 'description', content: 'Manage organizations and accounts' },
+       ];
+     };
+     ```
+
+  2. Для динамических страниц (например, `/events/:id`) использовать данные из `data` (результат работы `loader`):
+
+     ```tsx
+     export const meta: MetaFunction<typeof loader> = ({ data }) => {
+       if (!data?.event) {
+         return [{ title: 'Event Not Found | Admin Portal' }];
+       }
+
+       return [
+         { title: `${data.event.name} | Admin Portal` },
+       ];
+     };
+     ```
+
 ## -4. Антипаттерн «God Hook» (`useEventModel`): агрегация всех запросов/мутаций сущности в один хук
 
 - **Файл/Хук:** `useEventModel.ts`
